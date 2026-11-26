@@ -52,8 +52,12 @@ def scrape_one(label: str, url: str, out_csv: str) -> int:
         if not sno.isdigit():
             continue
 
-        link_m = re.search(r'href=["\']([^"\']*candidate\.php[^"\']*)["\']', tds[1], re.I)
-        profile_url = (base_dir + link_m.group(1)) if link_m else ''
+        link_m = re.search(r'href=["\']?([^"\'\s>]*candidate\.php[^"\'\s>]*)', tds[1], re.I)
+        if link_m:
+            href = link_m.group(1)
+            profile_url = ('https://myneta.info' + href) if href.startswith('/') else (base_dir + href)
+        else:
+            profile_url = ''
         candidate = clean_text(tds[1])
         constituency = clean_text(tds[2])
         party = clean_text(tds[3])

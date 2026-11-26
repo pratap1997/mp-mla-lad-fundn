@@ -229,10 +229,18 @@ function openMlaModal(row) {
   const cleanName = mlaSplit(rawName);
   const history = allRows.filter(r => r['MLA Name & Constituency'] === rawName);
   const myneta = findMyNetaMatch(rawName);
+  const vs = findVidhanMatch(rawName, myneta);
 
-  title.textContent = cleanName;
+  title.textContent = vs ? `${vs.mla_name_en} (${vs.mla_name_hi})` : cleanName;
   body.innerHTML = `
-    <p><strong>District:</strong> ${row['Nodal District'] || '—'} | <strong>House:</strong> ${row['House'] || '—'}</p>
+    <p><strong>District:</strong> ${row['Nodal District'] || vs?.district_en || '—'} | <strong>House:</strong> ${row['House'] || '—'}</p>
+    ${vs ? `<div class="graphify-node">
+      <strong>UP Vidhan Sabha Official Info:</strong> ${vs.ac_name_en} (${vs.ac_name_hi}) &bull;
+      <strong>Party:</strong> ${vs.party_short || vs.party_en} &bull;
+      <strong>Gender:</strong> ${vs.gender || '—'} &bull; <strong>DOB:</strong> ${vs.dob || '—'}
+      ${vs.phone ? ` &bull; <strong>Phone:</strong> ${vs.phone}` : ''}
+      &bull; <a href="${vs.profile_url}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">Vidhan Sabha Profile &rarr;</a>
+    </div>` : ''}
     ${myneta ? `<div class="graphify-node" style="margin-bottom:.5rem">
       <strong>MyNeta Affidavit Profile:</strong> ${myneta['Candidate']} (${myneta['Party']}) &bull;
       <strong>Constituency:</strong> ${myneta['Constituency']} &bull;
@@ -304,7 +312,7 @@ function updateRankings() {
     const el = document.getElementById(elId);
     if (!el) return;
     el.innerHTML = items.map((m, i) => `
-      <div class="rank-item">
+      <div class="rank-item" data-mla-name="${m.name.replace(/"/g, '&quot;')}">
         <span class="rank-num">${i + 1}</span>
         <div class="rank-info">
           <div class="rank-name">${m.name}</div>
@@ -312,6 +320,13 @@ function updateRankings() {
         </div>
         <span class="rank-val ${cls}">${valFn(m)}</span>
       </div>`).join('');
+    el.querySelectorAll('.rank-item[data-mla-name]').forEach(item => {
+      item.addEventListener('click', () => {
+        const nm = item.getAttribute('data-mla-name');
+        const row = allRows.find(r => mlaSplit(r['MLA Name & Constituency'] || '') === nm);
+        if (row) openMlaModal(row);
+      });
+    });
   };
 
   renderList('top-spenders', topSpenders, m => `₹${fmt(m.spent)}L`, 'rank-val--green');
@@ -751,6 +766,60 @@ function renderUnifiedCard(constKey) {
   card.hidden = false;
 }
 
+function findVidhanMatch(rawName, myneta) {
+  if (!upVidhanData.length) return null;
+  const norm = s => (s || '').toLowerCase().replace(/\s*\(sc\)|\s*\(st\)/g, '').replace(/[^a-z0-9]/g, '');
+  if (myneta && myneta['Constituency']) {
+    const c = norm(myneta['Constituency']);
+    const hit = upVidhanData.find(u => norm(u.ac_name_en) === c);
+    if (hit) return hit;
+  }
+  const clean = (rawName || '').toLowerCase();
+  return upVidhanData.find(u => {
+    const ac = (u.ac_name_hi || '').trim().toLowerCase();
+    const nm = (u.mla_name_hi || '').replace(/^श्री\s+|^श्रीमती\s+|^डॉ\.\s+/, '').trim().toLowerCase();
+    return (ac && clean.includes(ac)) || (nm && clean.includes(nm));
+  }) || null;
+}
+
+function openProfileModal(constKey, scope) {
+  const modal = document.getElementById('mla-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+  if (!modal || !title || !body) return;
+
+  const norm = s => (s || '').toLowerCase().replace(/\s*\(sc\)|\s*\(st\)/g, '').replace(/[^a-z0-9]/g, '');
+  const target = norm(constKey);
+  const vs = scope === 'UP' ? upVidhanData.find(u => norm(u.ac_name_en) === target) : null;
+  const mn = (mynetaData[scope] || []).find(m => norm(m['Constituency']) === target);
+  const ladRows = scope === 'UP'
+    ? allRows.filter(r => {
+        const txt = (r['MLA Name & Constituency'] || '').toLowerCase();
+        return (vs && vs.ac_name_hi && txt.includes(vs.ac_name_hi.toLowerCase()))
+          || (vs && vs.mla_name_hi && txt.includes(vs.mla_name_hi.replace(/^श्री\s+|^श्रीमती\s+|^डॉ\.\s+/, '').trim().toLowerCase()));
+      })
+    : [];
+
+  title.textContent = vs ? `${vs.mla_name_en} (${vs.mla_name_hi})` : (mn ? mn['Candidate'] : constKey);
+  body.innerHTML = `
+    ${vs ? `<div class="graphify-node">
+      <strong>UP Vidhan Sabha Official Bio:</strong> ${vs.ac_name_en} (${vs.ac_name_hi}) &bull; <strong>District:</strong> ${vs.district_en} &bull;
+      <strong>Party:</strong> ${vs.party_short || vs.party_en} &bull; <strong>Gender:</strong> ${vs.gender || '—'} &bull; <strong>DOB:</strong> ${vs.dob || '—'}
+      ${vs.phone ? ` &bull; <strong>Phone:</strong> ${vs.phone}` : ''}
+      &bull; <a href="${vs.profile_url}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">Vidhan Sabha Profile &rarr;</a>
+    </div>` : ''}
+    ${mn ? `<div class="graphify-node">
+      <strong>MyNeta Affidavit:</strong> ${mn['Candidate']} (${mn['Party']}) &bull; <strong>Education:</strong> ${mn['Education']} &bull;
+      <strong>Cases:</strong> ${mn['Criminal Cases']} &bull; <strong>Assets:</strong> ${mn['Assets Display'] || '—'} &bull; <strong>Liabilities:</strong> ${mn['Liabilities Display'] || '—'}
+      ${mn['MyNeta URL'] ? ` &bull; <a href="${mn['MyNeta URL']}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">Full Affidavit &rarr;</a>` : ''}
+    </div>` : ''}
+    ${ladRows.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Year</th><th class="num">Allocated (L)</th><th class="num">Spent (L)</th><th class="num">Remaining (L)</th></tr></thead><tbody>
+      ${ladRows.map(h => `<tr><td>${h['Year Label'] || h['Financial Year'] || ''}</td><td class="num">₹${fmt(h['Allocated Funds (Lakhs)'])}</td><td class="num">₹${fmt(h['Expenditure (Lakhs)'])}</td><td class="num">₹${fmt(h['Remaining Balance (Lakhs)'])}</td></tr>`).join('')}
+    </tbody></table></div>` : ''}
+  `;
+  modal.hidden = false;
+}
+
 function findMyNetaMatch(rawName) {
   const list = mynetaData.UP || [];
   if (!list.length || !rawName) return null;
@@ -779,23 +848,38 @@ function renderProfiles() {
     return;
   }
 
-  const slice = rows.slice(0, 100);
+  const norm = s => (s || '').toLowerCase().replace(/\s*\(sc\)|\s*\(st\)/g, '').replace(/[^a-z0-9]/g, '');
+  const slice = rows.slice(0, 120);
   tbody.innerHTML = slice.map(r => {
     const cases = parseInt(r['Criminal Cases'] || 0, 10) || 0;
     const caseColor = cases > 0 ? 'var(--color-danger)' : 'var(--color-success)';
-    return `<tr>
-      <td><div class="mla-name">${r['Candidate'] || ''}</div></td>
+    const vs = activeProfileScope === 'UP' ? upVidhanData.find(u => norm(u.ac_name_en) === norm(r['Constituency'])) : null;
+    const constAttr = (r['Constituency'] || '').replace(/"/g, '&quot;');
+    return `<tr data-const="${constAttr}" data-scope="${activeProfileScope}">
+      <td>
+        <div class="mla-name">${r['Candidate'] || ''}</div>
+        ${vs ? `<div class="mla-area">${vs.mla_name_hi} &bull; ${vs.district_en}</div>` : ''}
+      </td>
       <td>${r['Constituency'] || ''}</td>
       <td>${r['Party'] || ''}</td>
       <td class="num" style="color:${caseColor};font-weight:700">${cases}</td>
       <td>${r['Education'] || '—'}</td>
       <td class="num">${r['Assets Display'] || '—'}</td>
       <td class="num">${r['Liabilities Display'] || '—'}</td>
-      <td>${r['MyNeta URL'] ? `<a href="${r['MyNeta URL']}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">Affidavit &rarr;</a>` : '—'}</td>
+      <td>
+        ${r['MyNeta URL'] ? `<a href="${r['MyNeta URL']}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color:var(--color-primary);font-weight:600">Affidavit &rarr;</a>` : '—'}
+        ${vs ? `<br/><a href="${vs.profile_url}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color:var(--color-accent);font-weight:600;font-size:.76rem">Vidhan Sabha &rarr;</a>` : ''}
+      </td>
     </tr>`;
   }).join('');
 
-  if (meta) meta.textContent = `Showing ${slice.length} of ${rows.length} MyNeta profiles (${activeProfileScope})`;
+  tbody.querySelectorAll('tr[data-const]').forEach(tr => {
+    tr.addEventListener('click', () => {
+      openProfileModal(tr.getAttribute('data-const'), tr.getAttribute('data-scope'));
+    });
+  });
+
+  if (meta) meta.textContent = `Showing ${slice.length} of ${rows.length} profiles (${activeProfileScope}) — click any row for full wholesome profile`;
 }
 
 function debounce(fn, ms) {
