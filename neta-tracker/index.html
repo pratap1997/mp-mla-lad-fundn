@@ -1,231 +1,338 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>नेता ट्रैकर — MLA/MP LAD Fund Tracker</title>
-  <meta name="description" content="Track how your MLA and MP spend public development funds. Transparent, open-source data from UP and Rajasthan." />
+  <title>Neta Tracker — Open MLA &amp; MP LAD Fund Portal</title>
+  <meta name="description" content="Track how MLAs and MPs spend public Local Area Development funds across Uttar Pradesh and Rajasthan. Open-source, bilingual civic data portal." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
-    <!-- NAV -->
-    <nav class="nav">
+    <header class="nav">
       <div class="container nav-inner">
-        <a href="#" class="logo">
-          <span class="logo-icon">🏛</span>
-          <span class="logo-text">नेता <strong>ट्रैकर</strong></span>
+        <a href="#overview" class="logo">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
+          </svg>
+          <span class="logo-text" data-i18n="brand">Neta Tracker</span>
         </a>
-        <div class="nav-links">
-          <a href="#overview" class="nav-link">Overview</a>
-          <a href="#mla-data" class="nav-link">MLAs</a>
-          <a href="#works" class="nav-link">Works</a>
-          <a href="#rajasthan" class="nav-link">Rajasthan</a>
-          <a href="https://github.com/pratap1997/mp-mla-lad-fundn" target="_blank" class="nav-link nav-link--github">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        <nav class="nav-links" aria-label="Primary">
+          <a href="#overview" class="nav-link" data-i18n="navOverview">Overview</a>
+          <a href="#mla-data" class="nav-link" data-i18n="navMlas">MLAs</a>
+          <a href="#charts" class="nav-link" data-i18n="navCharts">Charts</a>
+          <a href="#map" class="nav-link" data-i18n="navMap">Map</a>
+          <a href="#explorer" class="nav-link" data-i18n="navExplorer">BI Studio</a>
+          <a href="#rajasthan" class="nav-link" data-i18n="navRajasthan">Rajasthan</a>
+          <button type="button" id="lang-toggle" class="lang-toggle" aria-label="Switch language">
+            <span id="lang-label">हिंदी</span>
+          </button>
+          <a href="https://github.com/pratap1997/mp-mla-lad-fundn" target="_blank" rel="noopener noreferrer" class="nav-link nav-link--github">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
             GitHub
           </a>
-        </div>
+        </nav>
       </div>
-    </nav>
+    </header>
 
-    <!-- HERO -->
-    <section class="hero" id="overview">
-      <div class="container">
-        <div class="hero-badge">🇮🇳 Open Government Data</div>
-        <h1 class="hero-title">आपके नेता ने<br/><span class="hero-accent">कितना खर्च किया?</span></h1>
-        <p class="hero-subtitle">Track every rupee of MLA/MP Local Area Development funds — project-by-project, year-by-year. Data sourced directly from official government portals.</p>
-        <div class="hero-actions">
-          <a href="#mla-data" class="btn btn-primary">🔍 Search Your MLA</a>
-          <a href="https://github.com/pratap1997/mp-mla-lad-fundn" target="_blank" class="btn btn-ghost">View Raw Data</a>
-        </div>
-
-        <!-- Live stats bar -->
-        <div class="stats-bar" id="stats-bar">
-          <div class="stat-item">
-            <span class="stat-num" id="stat-mlas">512</span>
-            <span class="stat-label">MLAs Tracked</span>
+    <main>
+      <section class="hero" id="overview">
+        <div class="container">
+          <p class="hero-lead-tag" data-i18n="heroBadge">Open Civic Data — India</p>
+          <h1 class="hero-title">
+            <span data-i18n="heroTitleTop">Where Did Your MLA</span><br />
+            <span class="hero-accent" data-i18n="heroTitleAccent">Spend Public Funds?</span>
+          </h1>
+          <p class="hero-subtitle" data-i18n="heroSubtitle">Track every rupee of MLA/MP Local Area Development funds across Uttar Pradesh and Rajasthan, sourced directly from official government portals.</p>
+          <div class="hero-actions">
+            <a href="#mla-data" class="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <span data-i18n="heroCtaPrimary">Search Your MLA</span>
+            </a>
+            <a href="#explorer" class="btn btn-ghost" data-i18n="heroCtaSecondary">Open BI Studio</a>
           </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num" id="stat-alloc">₹9,982 Cr</span>
-            <span class="stat-label">Total Allocated</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num" id="stat-spent">₹7,362 Cr</span>
-            <span class="stat-label">Total Spent</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num" id="stat-works">1,45,195</span>
-            <span class="stat-label">Works Sanctioned</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-num">4</span>
-            <span class="stat-label">Years Covered</span>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- SEARCH + MLA TABLE -->
-    <section class="section" id="mla-data">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">MLA Fund Summary</h2>
-          <p class="section-desc">Year-wise financial data for all 512 Uttar Pradesh MLAs and MLCs</p>
-        </div>
-
-        <!-- Filters -->
-        <div class="filter-bar">
-          <div class="search-wrap">
-            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input type="text" id="mla-search" class="search-input" placeholder="Search MLA name or constituency..." />
-          </div>
-          <select id="year-filter" class="filter-select">
-            <option value="">All Years</option>
-            <option value="2023-24">2023-24</option>
-            <option value="2024-25">2024-25</option>
-            <option value="2025-26">2025-26</option>
-            <option value="2026-27">2026-27</option>
-          </select>
-          <select id="house-filter" class="filter-select">
-            <option value="">Both Houses</option>
-            <option value="Vidhan Sabha (MLA)">Vidhan Sabha</option>
-            <option value="Vidhan Parishad (MLC)">Vidhan Parishad</option>
-          </select>
-        </div>
-
-        <!-- Table -->
-        <div class="table-wrap">
-          <table class="data-table" id="mla-table">
-            <thead>
-              <tr>
-                <th>MLA / Area</th>
-                <th>House</th>
-                <th>Year</th>
-                <th>District</th>
-                <th class="num">Allocated (₹L)</th>
-                <th class="num">Sanctioned (₹L)</th>
-                <th class="num">Spent (₹L)</th>
-                <th class="num">Remaining (₹L)</th>
-                <th class="num">Utilisation</th>
-              </tr>
-            </thead>
-            <tbody id="mla-tbody">
-              <tr><td colspan="9" class="loading-row"><div class="spinner"></div> Loading fund data...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="table-meta" id="table-meta"></div>
-      </div>
-    </section>
-
-    <!-- TOP/BOTTOM PERFORMERS -->
-    <section class="section section--alt" id="works">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Performance Rankings</h2>
-          <p class="section-desc">Who spent the most and who is yet to utilise their funds</p>
-        </div>
-        <div class="ranking-grid" id="ranking-grid">
-          <div class="rank-card">
-            <div class="rank-card-header rank-card-header--green">🏆 Top 10 — Highest Expenditure</div>
-            <div class="rank-list" id="top-spenders"></div>
-          </div>
-          <div class="rank-card">
-            <div class="rank-card-header rank-card-header--red">⚠️ Bottom 10 — Lowest Utilisation</div>
-            <div class="rank-list" id="low-spenders"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- YEAR COMPARISON CHART -->
-    <section class="section" id="charts">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Year-wise Trend</h2>
-          <p class="section-desc">How UP MLA-LAD fund allocation and expenditure has changed</p>
-        </div>
-        <div class="chart-container" id="chart-container">
-          <canvas id="year-chart" height="300"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- RAJASTHAN SECTION -->
-    <section class="section section--alt" id="rajasthan">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Rajasthan — RDPRWMS Data</h2>
-          <p class="section-desc">Multi-scheme, multi-year data from Rajasthan's Rural Development portal</p>
-        </div>
-        <div class="raj-grid" id="raj-grid">
-          <div class="loading-placeholder">Loading Rajasthan data...</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- DATA SOURCES -->
-    <section class="section" id="sources">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Data Sources & Transparency</h2>
-          <p class="section-desc">All data scraped directly from official government portals — no manipulation</p>
-        </div>
-        <div class="sources-grid">
-          <a href="https://mlaladsup.in" target="_blank" class="source-card">
-            <div class="source-icon">🏛</div>
-            <div class="source-info">
-              <div class="source-name">mlaladsup.in</div>
-              <div class="source-desc">UP MLA-LAD official portal — fund & works data</div>
+          <div class="stats-bar" id="stats-bar">
+            <div class="stat-item">
+              <span class="stat-num" id="stat-mlas">512</span>
+              <span class="stat-label" data-i18n="statMlas">MLAs &amp; MLCs</span>
             </div>
-          </a>
-          <a href="https://rdprwms.rajasthan.gov.in" target="_blank" class="source-card">
-            <div class="source-icon">🏜</div>
-            <div class="source-info">
-              <div class="source-name">rdprwms.rajasthan.gov.in</div>
-              <div class="source-desc">Rajasthan Rural Dev Works Management System</div>
+            <div class="stat-divider" aria-hidden="true"></div>
+            <div class="stat-item">
+              <span class="stat-num" id="stat-alloc">₹9,982 Cr</span>
+              <span class="stat-label" data-i18n="statAlloc">Total Allocated</span>
             </div>
-          </a>
-          <a href="https://github.com/pratap1997/mp-mla-lad-fundn" target="_blank" class="source-card">
-            <div class="source-icon">📂</div>
-            <div class="source-info">
-              <div class="source-name">GitHub Repository</div>
-              <div class="source-desc">Raw CSVs, Excel sheets, DPR PDFs & all scrapers</div>
+            <div class="stat-divider" aria-hidden="true"></div>
+            <div class="stat-item">
+              <span class="stat-num" id="stat-spent">₹7,362 Cr</span>
+              <span class="stat-label" data-i18n="statSpent">Total Spent</span>
             </div>
-          </a>
-          <div class="source-card source-card--info">
-            <div class="source-icon">🔄</div>
-            <div class="source-info">
-              <div class="source-name">Last Scraped</div>
-              <div class="source-desc" id="last-scraped">November 2026 — 4 financial years (2023-24 to 2026-27)</div>
+            <div class="stat-divider" aria-hidden="true"></div>
+            <div class="stat-item">
+              <span class="stat-num" id="stat-works">1,45,195</span>
+              <span class="stat-label" data-i18n="statWorks">Works Sanctioned</span>
+            </div>
+            <div class="stat-divider" aria-hidden="true"></div>
+            <div class="stat-item">
+              <span class="stat-num">4</span>
+              <span class="stat-label" data-i18n="statYears">Financial Years</span>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- FOOTER -->
+      <section class="section" id="mla-data">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="secMlaTitle">MLA Fund Summary</h2>
+            <p class="section-desc" data-i18n="secMlaDesc">Year-wise financial data for all 512 Uttar Pradesh MLAs and MLCs</p>
+          </div>
+
+          <div class="filter-bar">
+            <div class="search-wrap">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="text" id="mla-search" class="search-input" placeholder="Search MLA, constituency, or district..." data-i18n-placeholder="searchPlaceholder" />
+            </div>
+            <select id="district-filter" class="filter-select" aria-label="Filter by district">
+              <option value="" data-i18n="allDistricts">All Districts</option>
+            </select>
+            <select id="year-filter" class="filter-select" aria-label="Filter by year">
+              <option value="" data-i18n="allYears">All Years</option>
+              <option value="2023-24">2023-24</option>
+              <option value="2024-25">2024-25</option>
+              <option value="2025-26">2025-26</option>
+              <option value="2026-27">2026-27</option>
+            </select>
+            <select id="house-filter" class="filter-select" aria-label="Filter by house">
+              <option value="" data-i18n="bothHouses">Both Houses</option>
+              <option value="Vidhan Sabha">Vidhan Sabha</option>
+              <option value="Vidhan Parishad">Vidhan Parishad</option>
+            </select>
+            <button type="button" id="export-csv-btn" class="btn-export" data-i18n="exportCsv">Download CSV</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table" id="mla-table">
+              <thead>
+                <tr>
+                  <th data-i18n="thMla">MLA / Constituency</th>
+                  <th data-i18n="thHouse">House</th>
+                  <th data-i18n="thYear">Year</th>
+                  <th data-i18n="thDistrict">District</th>
+                  <th class="num" data-i18n="thAlloc">Allocated (L)</th>
+                  <th class="num" data-i18n="thSanc">Sanctioned (L)</th>
+                  <th class="num" data-i18n="thSpent">Spent (L)</th>
+                  <th class="num" data-i18n="thRem">Remaining (L)</th>
+                  <th class="num" data-i18n="thUtil">Utilisation</th>
+                </tr>
+              </thead>
+              <tbody id="mla-tbody">
+                <tr><td colspan="9" class="loading-row"><span class="spinner"></span> Loading fund data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-meta" id="table-meta"></div>
+        </div>
+      </section>
+
+      <section class="section section--alt" id="charts">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="secChartsTitle">Fund Analytics &amp; Breakdown</h2>
+            <p class="section-desc" data-i18n="secChartsDesc">Visualising expenditure share, house-wise split, and multi-year trends</p>
+          </div>
+          <div class="charts-grid">
+            <div class="chart-panel">
+              <h3 class="chart-heading" data-i18n="chartPieTitle">Overall Fund Utilisation Share</h3>
+              <div class="chart-canvas-wrap"><canvas id="pie-util-chart"></canvas></div>
+            </div>
+            <div class="chart-panel">
+              <h3 class="chart-heading" data-i18n="chartHouseTitle">Allocation by Legislative House</h3>
+              <div class="chart-canvas-wrap"><canvas id="pie-house-chart"></canvas></div>
+            </div>
+            <div class="chart-panel chart-panel--wide">
+              <h3 class="chart-heading" data-i18n="chartYearTitle">Year-wise Allocation vs Expenditure (Cr)</h3>
+              <div class="chart-canvas-wrap chart-canvas-wrap--tall"><canvas id="year-chart"></canvas></div>
+            </div>
+            <div class="chart-panel chart-panel--wide">
+              <h3 class="chart-heading" data-i18n="chartDistTitle">Top 10 Districts by Expenditure (Cr)</h3>
+              <div class="chart-canvas-wrap chart-canvas-wrap--tall"><canvas id="district-chart"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="map">
+        <div class="container">
+          <div class="section-header map-header">
+            <div>
+              <h2 class="section-title" data-i18n="secMapTitle">District Utilisation Map</h2>
+              <p class="section-desc" data-i18n="secMapDesc">Interactive geographic view of fund allocation and spending across UP &amp; Rajasthan districts</p>
+            </div>
+            <div class="map-controls" role="group" aria-label="State filter for map">
+              <button type="button" class="map-btn is-active" data-map-state="ALL" data-i18n="mapAll">All States</button>
+              <button type="button" class="map-btn" data-map-state="UP" data-i18n="mapUp">Uttar Pradesh</button>
+              <button type="button" class="map-btn" data-map-state="RAJ" data-i18n="mapRaj">Rajasthan</button>
+            </div>
+          </div>
+          <div id="district-map" class="map-box" role="region" aria-label="District fund utilization map"></div>
+          <div class="map-legend">
+            <span><i class="dot dot--green"></i> &ge; 80% utilised</span>
+            <span><i class="dot dot--amber"></i> 50–79% utilised</span>
+            <span><i class="dot dot--red"></i> &lt; 50% utilised</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--alt" id="flow">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="secFlowTitle">Fund Flow &amp; Knowledge Graph</h2>
+            <p class="section-desc" data-i18n="secFlowDesc">How public LAD funds move from state treasury to local works, and relational hierarchy</p>
+          </div>
+
+          <div class="flow-panel">
+            <h3 class="chart-heading" data-i18n="flowDiagramTitle">MLA-LAD Execution Pipeline</h3>
+            <svg viewBox="0 0 960 170" class="flow-svg" role="img" aria-label="MLA-LAD fund flow diagram">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 1 L 10 5 L 0 9 z" fill="#1a4fa0" />
+                </marker>
+              </defs>
+              <rect x="10" y="30" width="150" height="86" rx="10" class="flow-node" />
+              <text x="85" y="65" text-anchor="middle" class="flow-title">1. State Budget</text>
+              <text x="85" y="88" text-anchor="middle" class="flow-sub">₹5 Cr / MLA / Year</text>
+              <line x1="160" y1="73" x2="198" y2="73" class="flow-edge" marker-end="url(#arrow)" />
+
+              <rect x="202" y="30" width="150" height="86" rx="10" class="flow-node" />
+              <text x="277" y="65" text-anchor="middle" class="flow-title">2. MLA Proposal</text>
+              <text x="277" y="88" text-anchor="middle" class="flow-sub">Constituency Works</text>
+              <line x1="352" y1="73" x2="390" y2="73" class="flow-edge" marker-end="url(#arrow)" />
+
+              <rect x="394" y="30" width="150" height="86" rx="10" class="flow-node" />
+              <text x="469" y="65" text-anchor="middle" class="flow-title">3. Nodal District</text>
+              <text x="469" y="88" text-anchor="middle" class="flow-sub">DRDA Technical Check</text>
+              <line x1="544" y1="73" x2="582" y2="73" class="flow-edge" marker-end="url(#arrow)" />
+
+              <rect x="586" y="30" width="150" height="86" rx="10" class="flow-node" />
+              <text x="661" y="65" text-anchor="middle" class="flow-title">4. DPR &amp; Sanction</text>
+              <text x="661" y="88" text-anchor="middle" class="flow-sub">Fund Release</text>
+              <line x1="736" y1="73" x2="774" y2="73" class="flow-edge" marker-end="url(#arrow)" />
+
+              <rect x="778" y="30" width="170" height="86" rx="10" class="flow-node flow-node--accent" />
+              <text x="863" y="65" text-anchor="middle" class="flow-title">5. Public Audit</text>
+              <text x="863" y="88" text-anchor="middle" class="flow-sub">DPR PDFs &amp; Photos</text>
+            </svg>
+          </div>
+
+          <div class="graphify-panel">
+            <h3 class="chart-heading" data-i18n="graphifyTitle">Graphify Relational Explorer (State &rarr; House &rarr; District &rarr; MLA)</h3>
+            <div id="graphify-tree" class="graphify-tree"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="explorer">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="secExplorerTitle">Interactive BI Data Studio</h2>
+            <p class="section-desc" data-i18n="secExplorerDesc">Slice, pivot, and chart 4,500+ UP &amp; Rajasthan records directly in your browser</p>
+          </div>
+          <div id="bi-explorer-root"></div>
+        </div>
+      </section>
+
+      <section class="section section--alt" id="works">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="secRankTitle">Performance Rankings</h2>
+            <p class="section-desc" data-i18n="secRankDesc">Highest expenditure and lowest fund utilisation across filtered records</p>
+          </div>
+          <div class="ranking-grid" id="ranking-grid">
+            <div class="rank-card">
+              <div class="rank-card-header rank-card-header--green" data-i18n="topSpendersTitle">Top 10 — Highest Expenditure</div>
+              <div class="rank-list" id="top-spenders"></div>
+            </div>
+            <div class="rank-card">
+              <div class="rank-card-header rank-card-header--red" data-i18n="lowSpendersTitle">Bottom 10 — Lowest Utilisation</div>
+              <div class="rank-list" id="low-spenders"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="rajasthan">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="secRajTitle">Rajasthan — RDPRWMS Data</h2>
+            <p class="section-desc" data-i18n="secRajDesc">Multi-scheme, multi-year MLA-LAD data from Rajasthan Rural Development portal</p>
+          </div>
+          <div class="raj-grid" id="raj-grid">
+            <div class="loading-placeholder">Loading Rajasthan data...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--alt" id="sources">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title" data-i18n="secSourcesTitle">Data Sources &amp; Transparency</h2>
+            <p class="section-desc" data-i18n="secSourcesDesc">All datasets are extracted from public government portals with full auditability</p>
+          </div>
+          <div class="sources-grid">
+            <a href="https://mlaladsup.in" target="_blank" rel="noopener noreferrer" class="source-card">
+              <svg class="source-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 21h18M5 21V7l7-4 7 4v14"/></svg>
+              <div class="source-info">
+                <div class="source-name">mlaladsup.in</div>
+                <div class="source-desc">UP MLA-LAD official portal — fund, works &amp; DPR PDFs</div>
+              </div>
+            </a>
+            <a href="https://rdprwms.rajasthan.gov.in" target="_blank" rel="noopener noreferrer" class="source-card">
+              <svg class="source-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              <div class="source-info">
+                <div class="source-name">rdprwms.rajasthan.gov.in</div>
+                <div class="source-desc">Rajasthan Rural Dev Works Management System</div>
+              </div>
+            </a>
+            <a href="https://github.com/pratap1997/mp-mla-lad-fundn" target="_blank" rel="noopener noreferrer" class="source-card">
+              <svg class="source-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              <div class="source-info">
+                <div class="source-name">GitHub Repository</div>
+                <div class="source-desc">Raw CSVs, Excel workbooks, DPR PDFs &amp; scrapers</div>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
     <footer class="footer">
       <div class="container footer-inner">
         <div class="footer-brand">
-          <span class="logo-icon">🏛</span>
-          <strong>नेता ट्रैकर</strong>
-          <span class="footer-tagline">Open data. No affiliation. No agenda.</span>
+          <strong data-i18n="brand">Neta Tracker</strong>
+          <span class="footer-tagline" data-i18n="footerTagline">Open civic data. No affiliation. No agenda.</span>
         </div>
         <div class="footer-links">
-          <a href="https://github.com/pratap1997/mp-mla-lad-fundn" target="_blank">GitHub</a>
-          <a href="https://mlaladsup.in" target="_blank">UP Portal</a>
-          <a href="https://rdprwms.rajasthan.gov.in" target="_blank">Rajasthan Portal</a>
+          <a href="https://github.com/pratap1997/mp-mla-lad-fundn" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://mlaladsup.in" target="_blank" rel="noopener noreferrer">UP Portal</a>
+          <a href="https://rdprwms.rajasthan.gov.in" target="_blank" rel="noopener noreferrer">Rajasthan Portal</a>
         </div>
       </div>
     </footer>
+  </div>
+
+  <div id="mla-modal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modal-title">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <h3 id="modal-title">MLA Details</h3>
+        <button type="button" id="modal-close" class="modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
   </div>
 
   <script src="app.js" type="module"></script>

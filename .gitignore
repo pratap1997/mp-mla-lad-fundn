@@ -1,10 +1,17 @@
 # Large raw/cached data & actively downloading folders (>100MB or live-written)
 raw_data/
 Portal_Documents/DPR_PDFs/
+Portal_Documents/DPR_PDFs_Compressed/
 Portal_Documents/download_log*.csv
+Portal_Documents/compression_log.csv
 Portal_Documents/photo_urls*.csv
 Portal_Documents/progress.txt
 MLA_LADS_UP_All_Works.csv
+firecrawl_output.json
+
+# Node / Vite build
+neta-tracker/node_modules/
+neta-tracker/dist/
 
 # Python / OS / Office artifacts
 __pycache__/
