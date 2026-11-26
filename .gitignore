@@ -1,0 +1,14 @@
+# Large raw/cached data & actively downloading folders (>100MB or live-written)
+raw_data/
+Portal_Documents/DPR_PDFs/
+Portal_Documents/download_log*.csv
+Portal_Documents/photo_urls*.csv
+Portal_Documents/progress.txt
+MLA_LADS_UP_All_Works.csv
+
+# Python / OS / Office artifacts
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+~$*
