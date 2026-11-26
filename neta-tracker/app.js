@@ -28,6 +28,8 @@ let mpLayerGroup = null;
 let showMpSeats = false;
 let activeMapState = 'ALL';
 let geoCache = { states: null, up: null, raj: null, mp: null };
+let mynetaData = { UP: [], RAJ: [], LS: [] };
+let activeProfileScope = 'UP';
 
 // ── Helpers ─────────────────────────────────────────────────
 function fmt(v) {
@@ -225,10 +227,19 @@ function openMlaModal(row) {
   const rawName = row['MLA Name & Constituency'] || '';
   const cleanName = mlaSplit(rawName);
   const history = allRows.filter(r => r['MLA Name & Constituency'] === rawName);
+  const myneta = findMyNetaMatch(rawName);
 
   title.textContent = cleanName;
   body.innerHTML = `
     <p><strong>District:</strong> ${row['Nodal District'] || '—'} | <strong>House:</strong> ${row['House'] || '—'}</p>
+    ${myneta ? `<div class="graphify-node" style="margin-bottom:.5rem">
+      <strong>MyNeta Affidavit Profile:</strong> ${myneta['Candidate']} (${myneta['Party']}) &bull;
+      <strong>Constituency:</strong> ${myneta['Constituency']} &bull;
+      <strong>Education:</strong> ${myneta['Education']} &bull;
+      <strong>Cases:</strong> ${myneta['Criminal Cases']} &bull;
+      <strong>Assets:</strong> ${myneta['Assets Display'] || '—'}
+      ${myneta['MyNeta URL'] ? ` &bull; <a href="${myneta['MyNeta URL']}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">View Affidavit &rarr;</a>` : ''}
+    </div>` : ''}
     <div class="table-wrap">
       <table class="data-table">
         <thead>
@@ -581,10 +592,26 @@ async function init() {
     toggleMpLayer();
   });
 
-  const [fundRows, rajRows] = await Promise.all([
+  const base = import.meta.env.BASE_URL || '/';
+  const [fundRows, rajRows, upMyNeta, rajMyNeta, lsMyNeta] = await Promise.all([
     fetchCSV(DATA_SOURCES.fund),
     fetchCSV(DATA_SOURCES.raj),
+    fetchCSV(`${base}data/MyNeta_UP_2022.csv`),
+    fetchCSV(`${base}data/MyNeta_Rajasthan_2023.csv`),
+    fetchCSV(`${base}data/MyNeta_LokSabha_2024.csv`),
   ]);
+  mynetaData = { UP: upMyNeta, RAJ: rajMyNeta, LS: lsMyNeta };
+  renderProfiles();
+
+  document.querySelectorAll('.profile-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      activeProfileScope = btn.getAttribute('data-profile-scope') || 'UP';
+      renderProfiles();
+    });
+  });
+  document.getElementById('profile-search')?.addEventListener('input', debounce(renderProfiles, 200));
 
   if (fundRows.length) {
     allRows = fundRows;
@@ -631,6 +658,53 @@ async function init() {
   document.getElementById('district-filter')?.addEventListener('change', applyFilters);
   document.getElementById('year-filter')?.addEventListener('change', applyFilters);
   document.getElementById('house-filter')?.addEventListener('change', applyFilters);
+}
+
+function findMyNetaMatch(rawName) {
+  const list = mynetaData.UP || [];
+  if (!list.length || !rawName) return null;
+  const clean = rawName.toLowerCase();
+  return list.find(m => {
+    const c = (m['Constituency'] || '').toLowerCase().replace(/\s*\(sc\)|\s*\(st\)/g, '').trim();
+    return c && clean.includes(c);
+  }) || null;
+}
+
+function renderProfiles() {
+  const tbody = document.getElementById('profiles-tbody');
+  const meta = document.getElementById('profiles-meta');
+  if (!tbody) return;
+  const q = (document.getElementById('profile-search')?.value || '').toLowerCase();
+  const rows = (mynetaData[activeProfileScope] || []).filter(r => {
+    if (!q) return true;
+    return (r['Candidate'] || '').toLowerCase().includes(q)
+      || (r['Constituency'] || '').toLowerCase().includes(q)
+      || (r['Party'] || '').toLowerCase().includes(q);
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="loading-row">No matching profiles found.</td></tr>';
+    if (meta) meta.textContent = '';
+    return;
+  }
+
+  const slice = rows.slice(0, 100);
+  tbody.innerHTML = slice.map(r => {
+    const cases = parseInt(r['Criminal Cases'] || 0, 10) || 0;
+    const caseColor = cases > 0 ? 'var(--color-danger)' : 'var(--color-success)';
+    return `<tr>
+      <td><div class="mla-name">${r['Candidate'] || ''}</div></td>
+      <td>${r['Constituency'] || ''}</td>
+      <td>${r['Party'] || ''}</td>
+      <td class="num" style="color:${caseColor};font-weight:700">${cases}</td>
+      <td>${r['Education'] || '—'}</td>
+      <td class="num">${r['Assets Display'] || '—'}</td>
+      <td class="num">${r['Liabilities Display'] || '—'}</td>
+      <td>${r['MyNeta URL'] ? `<a href="${r['MyNeta URL']}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">Affidavit &rarr;</a>` : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  if (meta) meta.textContent = `Showing ${slice.length} of ${rows.length} MyNeta profiles (${activeProfileScope})`;
 }
 
 function debounce(fn, ms) {

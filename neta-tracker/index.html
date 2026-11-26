@@ -26,6 +26,7 @@
           <a href="#charts" class="nav-link" data-i18n="navCharts">Charts</a>
           <a href="#map" class="nav-link" data-i18n="navMap">Map</a>
           <a href="#explorer" class="nav-link" data-i18n="navExplorer">BI Studio</a>
+          <a href="#profiles" class="nav-link" data-i18n="navProfiles">Profiles</a>
           <a href="#rajasthan" class="nav-link" data-i18n="navRajasthan">Rajasthan</a>
           <button type="button" id="lang-toggle" class="lang-toggle" aria-label="Switch language">
             <span id="lang-label">हिंदी</span>
@@ -275,6 +276,48 @@
           <div class="raj-grid" id="raj-grid">
             <div class="loading-placeholder">Loading Rajasthan data...</div>
           </div>
+        </div>
+      </section>
+
+      <section class="section section--alt" id="profiles">
+        <div class="container">
+          <div class="section-header map-header">
+            <div>
+              <h2 class="section-title" data-i18n="secProfilesTitle">MP &amp; MLA Profiles (MyNeta)</h2>
+              <p class="section-desc" data-i18n="secProfilesDesc">Party, declared assets, criminal cases, education, and affidavit links for UP MLAs, Rajasthan MLAs, and 2024 Lok Sabha MPs</p>
+            </div>
+            <div class="map-controls" role="group" aria-label="Select legislature">
+              <button type="button" class="map-btn profile-tab is-active" data-profile-scope="UP">UP MLAs</button>
+              <button type="button" class="map-btn profile-tab" data-profile-scope="RAJ">Rajasthan MLAs</button>
+              <button type="button" class="map-btn profile-tab" data-profile-scope="LS">Lok Sabha MPs</button>
+            </div>
+          </div>
+          <div class="filter-bar">
+            <div class="search-wrap">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input type="text" id="profile-search" class="search-input" placeholder="Search candidate, constituency, or party..." />
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th>Constituency</th>
+                  <th>Party</th>
+                  <th class="num">Criminal Cases</th>
+                  <th>Education</th>
+                  <th class="num">Declared Assets</th>
+                  <th class="num">Liabilities</th>
+                  <th>Affidavit</th>
+                </tr>
+              </thead>
+              <tbody id="profiles-tbody">
+                <tr><td colspan="8" class="loading-row"><span class="spinner"></span> Loading MyNeta profiles...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-meta" id="profiles-meta"></div>
         </div>
       </section>
 
