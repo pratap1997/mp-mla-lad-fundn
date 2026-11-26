@@ -1,0 +1,16 @@
+{
+  "name": "neta-tracker",
+  "version": "1.0.0",
+  "description": "Open MLA/MP LAD Fund Public Tracker — India",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
