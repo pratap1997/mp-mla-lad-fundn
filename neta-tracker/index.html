@@ -293,11 +293,15 @@
             </div>
           </div>
           <div class="filter-bar">
+            <select id="constituency-dropdown" class="filter-select" style="min-width:260px;flex:1" aria-label="Select Vidhan Sabha or Lok Sabha Constituency">
+              <option value="">Select Constituency / Neta to view full profile...</option>
+            </select>
             <div class="search-wrap">
               <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input type="text" id="profile-search" class="search-input" placeholder="Search candidate, constituency, or party..." />
             </div>
           </div>
+          <div id="unified-neta-card" class="unified-card" hidden></div>
           <div class="table-wrap">
             <table class="data-table">
               <thead>

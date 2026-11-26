@@ -29,6 +29,7 @@ let showMpSeats = false;
 let activeMapState = 'ALL';
 let geoCache = { states: null, up: null, raj: null, mp: null };
 let mynetaData = { UP: [], RAJ: [], LS: [] };
+let upVidhanData = [];
 let activeProfileScope = 'UP';
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -593,14 +594,17 @@ async function init() {
   });
 
   const base = import.meta.env.BASE_URL || '/';
-  const [fundRows, rajRows, upMyNeta, rajMyNeta, lsMyNeta] = await Promise.all([
+  const [fundRows, rajRows, upMyNeta, rajMyNeta, lsMyNeta, upVS] = await Promise.all([
     fetchCSV(DATA_SOURCES.fund),
     fetchCSV(DATA_SOURCES.raj),
     fetchCSV(`${base}data/MyNeta_UP_2022.csv`),
     fetchCSV(`${base}data/MyNeta_Rajasthan_2023.csv`),
     fetchCSV(`${base}data/MyNeta_LokSabha_2024.csv`),
+    fetchCSV(`${base}data/UP_VidhanSabha_18_MLAs.csv`),
   ]);
   mynetaData = { UP: upMyNeta, RAJ: rajMyNeta, LS: lsMyNeta };
+  upVidhanData = upVS;
+  populateProfileDropdown();
   renderProfiles();
 
   document.querySelectorAll('.profile-tab').forEach(btn => {
@@ -608,8 +612,12 @@ async function init() {
       document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('is-active'));
       btn.classList.add('is-active');
       activeProfileScope = btn.getAttribute('data-profile-scope') || 'UP';
+      populateProfileDropdown();
       renderProfiles();
     });
+  });
+  document.getElementById('constituency-dropdown')?.addEventListener('change', e => {
+    renderUnifiedCard(e.target.value);
   });
   document.getElementById('profile-search')?.addEventListener('input', debounce(renderProfiles, 200));
 
@@ -658,6 +666,89 @@ async function init() {
   document.getElementById('district-filter')?.addEventListener('change', applyFilters);
   document.getElementById('year-filter')?.addEventListener('change', applyFilters);
   document.getElementById('house-filter')?.addEventListener('change', applyFilters);
+}
+
+function populateProfileDropdown() {
+  const sel = document.getElementById('constituency-dropdown');
+  const card = document.getElementById('unified-neta-card');
+  if (!sel) return;
+  if (card) card.hidden = true;
+  const rows = activeProfileScope === 'UP' && upVidhanData.length
+    ? upVidhanData.map(u => ({ key: u.ac_name_en || u.mla_name_en, label: `${u.ac_name_en} — ${u.mla_name_en} (${u.party_short || u.party_en})` }))
+    : (mynetaData[activeProfileScope] || []).map(m => ({ key: m['Constituency'], label: `${m['Constituency']} — ${m['Candidate']} (${m['Party']})` }));
+
+  rows.sort((a, b) => a.label.localeCompare(b.label));
+  sel.innerHTML = `<option value="">Select Constituency / Neta (${rows.length})...</option>` +
+    rows.map(r => `<option value="${r.key.replace(/"/g, '&quot;')}">${r.label}</option>`).join('');
+}
+
+function renderUnifiedCard(constKey) {
+  const card = document.getElementById('unified-neta-card');
+  if (!card) return;
+  if (!constKey) { card.hidden = true; return; }
+
+  const norm = s => (s || '').toLowerCase().replace(/\s*\(sc\)|\s*\(st\)/g, '').replace(/[^a-z0-9]/g, '');
+  const target = norm(constKey);
+
+  const vs = activeProfileScope === 'UP' ? upVidhanData.find(u => norm(u.ac_name_en) === target) : null;
+  const mn = (mynetaData[activeProfileScope] || []).find(m => norm(m['Constituency']) === target);
+  const ladRows = activeProfileScope === 'UP'
+    ? allRows.filter(r => {
+        const txt = (r['MLA Name & Constituency'] || '').toLowerCase();
+        return (vs && vs.ac_name_hi && txt.includes(vs.ac_name_hi.toLowerCase()))
+          || (vs && vs.mla_name_hi && txt.includes(vs.mla_name_hi.replace(/^श्री\s+|^श्रीमती\s+|^डॉ\.\s+/, '').trim().toLowerCase()));
+      })
+    : [];
+
+  const totAlloc = ladRows.reduce((s, r) => s + num(r['Allocated Funds (Lakhs)']), 0);
+  const totSpent = ladRows.reduce((s, r) => s + num(r['Expenditure (Lakhs)']), 0);
+  const pct = totAlloc > 0 ? ((totSpent / totAlloc) * 100).toFixed(1) : '—';
+
+  const titleName = vs ? `${vs.mla_name_en} (${vs.mla_name_hi})` : (mn ? mn['Candidate'] : constKey);
+  const subPlace = vs ? `${vs.ac_name_en} (${vs.ac_name_hi}) • ${vs.district_en}` : (mn ? mn['Constituency'] : '');
+
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+      <div>
+        <h3 style="font-size:1.1rem;color:var(--color-text)">${titleName}</h3>
+        <p style="font-size:.85rem;color:var(--color-text-secondary)">${subPlace}</p>
+      </div>
+      <span class="house-badge house-badge--vs">${vs ? (vs.party_short || vs.party_en) : (mn ? mn['Party'] : activeProfileScope)}</span>
+    </div>
+    <div class="unified-grid">
+      <div class="unified-col">
+        <h4>Official Assembly / House Info</h4>
+        ${vs ? `
+          <div><strong>Constituency:</strong> ${vs.ac_name_en} / ${vs.ac_name_hi}</div>
+          <div><strong>District:</strong> ${vs.district_en} (${vs.district_hi})</div>
+          <div><strong>Gender:</strong> ${vs.gender || '—'} | <strong>DOB:</strong> ${vs.dob || '—'}</div>
+          <div><strong>Contact:</strong> ${vs.phone || '—'} ${vs.email ? `• ${vs.email}` : ''}</div>
+          <div><a href="${vs.profile_url}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">UP Vidhan Sabha Official Profile &rarr;</a></div>
+        ` : '<div>Select UP MLAs tab for full Vidhan Sabha profile details.</div>'}
+      </div>
+      <div class="unified-col">
+        <h4>MyNeta Affidavit Summary</h4>
+        ${mn ? `
+          <div><strong>Party:</strong> ${mn['Party']}</div>
+          <div><strong>Criminal Cases:</strong> <strong style="color:${Number(mn['Criminal Cases']) > 0 ? 'var(--color-danger)' : 'var(--color-success)'}">${mn['Criminal Cases']}</strong></div>
+          <div><strong>Education:</strong> ${mn['Education'] || '—'}</div>
+          <div><strong>Assets:</strong> ${mn['Assets Display'] || '—'}</div>
+          <div><strong>Liabilities:</strong> ${mn['Liabilities Display'] || '—'}</div>
+          <div><a href="${mn['MyNeta URL']}" target="_blank" rel="noopener noreferrer" style="color:var(--color-primary);font-weight:600">View Full MyNeta Affidavit &rarr;</a></div>
+        ` : '<div>No matching MyNeta winner record found.</div>'}
+      </div>
+      <div class="unified-col">
+        <h4>MLA-LAD Fund Performance</h4>
+        ${ladRows.length ? `
+          <div><strong>Years Tracked:</strong> ${ladRows.length}</div>
+          <div><strong>Allocated:</strong> ₹${fmt(totAlloc)} Lakhs</div>
+          <div><strong>Spent:</strong> ₹${fmt(totSpent)} Lakhs</div>
+          <div><strong>Utilisation:</strong> <strong>${pct}%</strong></div>
+        ` : '<div>LAD fund breakdown available for UP MLAs in the main table above.</div>'}
+      </div>
+    </div>
+  `;
+  card.hidden = false;
 }
 
 function findMyNetaMatch(rawName) {
