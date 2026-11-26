@@ -2,7 +2,7 @@ import Papa from 'papaparse';
 import Chart from 'chart.js/auto';
 import L from 'leaflet';
 import { TRANSLATIONS } from './i18n.js';
-import { findDistrictCoords } from './geo.js';
+import { normalizeDistrictKey } from './geo.js';
 import { mountExplorer } from './explorer.jsx';
 
 const GITHUB_RAW = 'https://raw.githubusercontent.com/pratap1997/mp-mla-lad-fundn/main';
@@ -24,7 +24,10 @@ let yearChart = null;
 let districtChart = null;
 let leafletMap = null;
 let mapLayerGroup = null;
+let mpLayerGroup = null;
+let showMpSeats = false;
 let activeMapState = 'ALL';
+let geoCache = { states: null, up: null, raj: null, mp: null };
 
 // ── Helpers ─────────────────────────────────────────────────
 function fmt(v) {
@@ -387,60 +390,111 @@ function renderCharts(rows) {
   }
 }
 
-// ── Leaflet District Map (UP + Rajasthan) ───────────────────
+// ── OpenStreetMap + DataMeet / Indian Shapefiles Choropleth ─
 function initMap() {
   const el = document.getElementById('district-map');
   if (!el || leafletMap) return;
-  leafletMap = L.map(el).setView([26.8, 78.5], 6);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    maxZoom: 12,
+  leafletMap = L.map(el).setView([26.9, 77.5], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors | Boundaries: DataMeet / Indian Shapefiles',
+    maxZoom: 13,
   }).addTo(leafletMap);
   mapLayerGroup = L.layerGroup().addTo(leafletMap);
+  mpLayerGroup = L.layerGroup().addTo(leafletMap);
 }
 
-function updateMap() {
+async function fetchGeo(key, url) {
+  if (geoCache[key]) return geoCache[key];
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    geoCache[key] = await res.json();
+    return geoCache[key];
+  } catch {
+    return null;
+  }
+}
+
+async function updateMap() {
   if (!leafletMap || !mapLayerGroup) return;
   mapLayerGroup.clearLayers();
 
   const agg = {};
-  if (activeMapState === 'ALL' || activeMapState === 'UP') {
-    allRows.forEach(r => {
-      const d = (r['Nodal District'] || '').trim();
-      if (!d) return;
-      if (!agg[d]) agg[d] = { name: d, state: 'Uttar Pradesh', alloc: 0, spent: 0 };
-      agg[d].alloc += num(r['Allocated Funds (Lakhs)']);
-      agg[d].spent += num(r['Expenditure (Lakhs)']);
-    });
-  }
-  if (activeMapState === 'ALL' || activeMapState === 'RAJ') {
-    rajData.forEach(r => {
-      const d = (r['district_filter'] || '').trim();
-      if (!d || d.toLowerCase() === 'all') return;
-      const key = `RAJ:${d}`;
-      if (!agg[key]) agg[key] = { name: d, state: 'Rajasthan', alloc: 0, spent: 0 };
-      agg[key].alloc += num(r['available_funds_lacs']);
-      agg[key].spent += num(r['financial_sanction_lacs']);
-    });
-  }
-
-  Object.values(agg).forEach(d => {
-    const coords = findDistrictCoords(d.name);
-    if (!coords) return;
-    const pct = d.alloc > 0 ? Math.min(100, (d.spent / d.alloc) * 100) : 0;
-    const color = utilColor(pct);
-    const radius = Math.max(6, Math.min(18, Math.sqrt(d.alloc / 100) * 1.4));
-
-    L.circleMarker(coords, {
-      radius,
-      color,
-      fillColor: color,
-      fillOpacity: 0.65,
-      weight: 1.5,
-    })
-      .bindPopup(`<strong>${d.name}</strong> (${d.state})<br/>Allocated: ₹${(d.alloc / 100).toFixed(1)} Cr<br/>Spent/Sanctioned: ₹${(d.spent / 100).toFixed(1)} Cr<br/>Utilisation: ${pct.toFixed(1)}%`)
-      .addTo(mapLayerGroup);
+  allRows.forEach(r => {
+    const raw = (r['Nodal District'] || '').trim();
+    const k = normalizeDistrictKey(raw);
+    if (!k) return;
+    if (!agg[k]) agg[k] = { name: raw, state: 'Uttar Pradesh', alloc: 0, spent: 0 };
+    agg[k].alloc += num(r['Allocated Funds (Lakhs)']);
+    agg[k].spent += num(r['Expenditure (Lakhs)']);
   });
+  rajData.forEach(r => {
+    const raw = (r['district_filter'] || '').trim();
+    if (!raw || raw.toLowerCase() === 'all') return;
+    const k = normalizeDistrictKey(raw);
+    if (!k) return;
+    if (!agg[k]) agg[k] = { name: raw, state: 'Rajasthan', alloc: 0, spent: 0 };
+    agg[k].alloc += num(r['available_funds_lacs']);
+    agg[k].spent += num(r['financial_sanction_lacs']);
+  });
+
+  const base = import.meta.env.BASE_URL || '/';
+  const [statesGeo, upGeo, rajGeo] = await Promise.all([
+    fetchGeo('states', `${base}geo/india_states.geojson`),
+    activeMapState === 'ALL' || activeMapState === 'UP' ? fetchGeo('up', `${base}geo/up_districts.geojson`) : null,
+    activeMapState === 'ALL' || activeMapState === 'RAJ' ? fetchGeo('raj', `${base}geo/raj_districts.geojson`) : null,
+  ]);
+
+  if (statesGeo) {
+    L.geoJSON(statesGeo, {
+      style: { color: '#475569', weight: 1, fillOpacity: 0 },
+      interactive: false,
+    }).addTo(mapLayerGroup);
+  }
+
+  const renderDistrictLayer = (geo, stateLabel) => {
+    if (!geo) return;
+    L.geoJSON(geo, {
+      style: feat => {
+        const dt = feat.properties?.dtname || '';
+        const rec = agg[normalizeDistrictKey(dt)];
+        const pct = rec && rec.alloc > 0 ? Math.min(100, (rec.spent / rec.alloc) * 100) : null;
+        const fill = pct === null ? '#94a3b8' : utilColor(pct);
+        return { color: '#ffffff', weight: 1, fillColor: fill, fillOpacity: pct === null ? 0.25 : 0.65 };
+      },
+      onEachFeature: (feat, layer) => {
+        const dt = feat.properties?.dtname || 'District';
+        const rec = agg[normalizeDistrictKey(dt)];
+        const pct = rec && rec.alloc > 0 ? Math.min(100, (rec.spent / rec.alloc) * 100) : null;
+        const html = rec
+          ? `<strong>${dt}</strong> (${stateLabel})<br/>Allocated: ₹${(rec.alloc / 100).toFixed(1)} Cr<br/>Spent/Sanctioned: ₹${(rec.spent / 100).toFixed(1)} Cr<br/>Utilisation: ${pct.toFixed(1)}%`
+          : `<strong>${dt}</strong> (${stateLabel})<br/>No district-level records in filter`;
+        layer.bindPopup(html);
+        layer.on('mouseover', () => layer.setStyle({ weight: 2, color: '#0f172a', fillOpacity: 0.82 }));
+        layer.on('mouseout', () => layer.setStyle({ weight: 1, color: '#ffffff', fillOpacity: pct === null ? 0.25 : 0.65 }));
+      },
+    }).addTo(mapLayerGroup);
+  };
+
+  renderDistrictLayer(upGeo, 'Uttar Pradesh');
+  renderDistrictLayer(rajGeo, 'Rajasthan');
+}
+
+async function toggleMpLayer() {
+  if (!mpLayerGroup) return;
+  mpLayerGroup.clearLayers();
+  if (!showMpSeats) return;
+  const mpGeo = await fetchGeo('mp', 'https://raw.githubusercontent.com/shijithpk/2024_maps_supplement/main/india_ls_seats_543.geojson');
+  if (!mpGeo) return;
+  L.geoJSON(mpGeo, {
+    style: { color: '#1a4fa0', weight: 1.2, fillColor: '#1a4fa0', fillOpacity: 0.08 },
+    onEachFeature: (feat, layer) => {
+      const p = feat.properties || {};
+      const name = p.PC_NAME || p.pc_name || p.name || 'Lok Sabha Seat';
+      const st = p.ST_NAME || p.st_name || '';
+      layer.bindPopup(`<strong>${name}</strong>${st ? ` (${st})` : ''}<br/>2024 Lok Sabha Constituency`);
+    },
+  }).addTo(mpLayerGroup);
 }
 
 // ── Graphify Relational Tree ────────────────────────────────
@@ -513,13 +567,18 @@ async function init() {
     applyLanguage(lang === 'en' ? 'hi' : 'en');
   });
   document.getElementById('export-csv-btn')?.addEventListener('click', exportFilteredCSV);
-  document.querySelectorAll('.map-btn').forEach(btn => {
+  document.querySelectorAll('.map-btn[data-map-state]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('is-active'));
+      document.querySelectorAll('.map-btn[data-map-state]').forEach(b => b.classList.remove('is-active'));
       btn.classList.add('is-active');
       activeMapState = btn.getAttribute('data-map-state') || 'ALL';
       updateMap();
     });
+  });
+  document.getElementById('toggle-mp-layer')?.addEventListener('click', e => {
+    showMpSeats = !showMpSeats;
+    e.currentTarget.classList.toggle('is-active', showMpSeats);
+    toggleMpLayer();
   });
 
   const [fundRows, rajRows] = await Promise.all([
